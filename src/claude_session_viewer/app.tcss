@@ -21,11 +21,18 @@ Screen {
 .panel-header {
     dock: top;
     height: 1;
-    background: $primary-darken-2;
-    color: $text;
+    background: $surface-darken-1;
+    color: $text-muted;
     text-style: bold;
     padding: 0 1;
     text-align: center;
+}
+
+#projects-panel:focus-within .panel-header,
+#sessions-panel:focus-within .panel-header,
+#conversation-panel:focus-within .panel-header {
+    background: $primary;
+    color: $text;
 }
 
 #status-bar {
