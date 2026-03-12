@@ -6,13 +6,16 @@ import os
 
 from rich.text import Text
 from textual.app import ComposeResult
-from textual.widgets import Static
+from textual.widgets import Markdown, Static
 
 from claude_session_viewer.parser import ToolCall
 
 MAX_DIFF_LINES = 80
 MAX_WRITE_LINES = 40
+MAX_WRITE_MD_CHARS = 5000
 MAX_RESULT_CHARS = 500
+
+_MARKDOWN_EXTS = {".md", ".mdx", ".markdown"}
 
 
 def _short_path(file_path: str) -> str:
@@ -21,6 +24,12 @@ def _short_path(file_path: str) -> str:
     if file_path.startswith(home):
         return "~" + file_path[len(home):]
     return file_path
+
+
+def _is_markdown_file(file_path: str) -> bool:
+    """Check if a file path is a markdown file."""
+    _, ext = os.path.splitext(file_path)
+    return ext.lower() in _MARKDOWN_EXTS
 
 
 class ToolCallWidget(Static):
@@ -39,6 +48,14 @@ class ToolCallWidget(Static):
         color: $text-muted;
         margin: 0 0 0 2;
     }
+    ToolCallWidget .write-markdown {
+        margin: 0 0 0 2;
+    }
+    ToolCallWidget .write-markdown MarkdownFence {
+        margin: 1 0;
+        max-height: 30;
+        overflow-y: auto;
+    }
     """
 
     def __init__(self, tool_call: ToolCall, tool_result: str = ""):
@@ -49,9 +66,15 @@ class ToolCallWidget(Static):
     def compose(self) -> ComposeResult:
         tc = self.tool_call
         if tc.name == "Edit":
-            yield from self._compose_edit()
+            if _is_markdown_file(tc.input.get("file_path", "")):
+                yield from self._compose_edit_markdown()
+            else:
+                yield from self._compose_edit()
         elif tc.name == "Write":
-            yield from self._compose_write()
+            if _is_markdown_file(tc.input.get("file_path", "")):
+                yield from self._compose_write_markdown()
+            else:
+                yield from self._compose_write()
         else:
             yield from self._compose_default()
 
@@ -83,6 +106,31 @@ class ToolCallWidget(Static):
 
         self._append_error(diff)
         yield Static(diff, classes="tool-detail")
+
+    def _compose_edit_markdown(self) -> ComposeResult:
+        tc = self.tool_call
+        file_path = tc.input.get("file_path", "")
+        new_string = tc.input.get("new_string", "")
+
+        short = _short_path(file_path)
+        yield Static(f"✎ Edit  {short}", classes="tool-header")
+
+        content = new_string or ""
+        if len(content) > MAX_WRITE_MD_CHARS:
+            content = content[:MAX_WRITE_MD_CHARS] + "\n\n*... (truncated)*"
+        yield Markdown(content, classes="write-markdown")
+
+    def _compose_write_markdown(self) -> ComposeResult:
+        tc = self.tool_call
+        file_path = tc.input.get("file_path", "")
+        content = tc.input.get("content", "")
+
+        short = _short_path(file_path)
+        yield Static(f"✎ Write  {short}", classes="tool-header")
+
+        if len(content) > MAX_WRITE_MD_CHARS:
+            content = content[:MAX_WRITE_MD_CHARS] + "\n\n*... (truncated)*"
+        yield Markdown(content, classes="write-markdown")
 
     def _compose_write(self) -> ComposeResult:
         tc = self.tool_call
