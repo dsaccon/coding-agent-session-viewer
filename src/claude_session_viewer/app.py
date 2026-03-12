@@ -378,6 +378,8 @@ class SessionViewerApp(App):
         """Copy the current session ID to clipboard."""
         if not self._current_session_id:
             return
+        copied = False
+        # Try native clipboard tools first (most reliable locally)
         try:
             if platform.system() == "Darwin":
                 cmd = ["pbcopy"]
@@ -390,9 +392,12 @@ class SessionViewerApp(App):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            self.notify(f"Copied: {self._current_session_id}", timeout=2)
-        except Exception as e:
-            self.notify(f"Copy failed: {e}", severity="error", timeout=4)
+            copied = True
+        except Exception:
+            pass
+        # Also send OSC 52 (works over SSH if terminal supports it)
+        self.copy_to_clipboard(self._current_session_id)
+        self.notify(f"Copied: {self._current_session_id}", timeout=2)
 
     def action_go_back(self) -> None:
         """Go back: Conversation → Sessions → Projects."""
