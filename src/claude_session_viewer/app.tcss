@@ -94,6 +94,15 @@ ListView > ListItem.--highlight {
     width: 1fr;
 }
 
+#sessions-list ListItem {
+    height: auto;
+    max-height: 4;
+}
+
+#sessions-list ListItem Vertical {
+    height: auto;
+}
+
 .session-start {
     color: $primary-lighten-2;
     width: 1fr;
