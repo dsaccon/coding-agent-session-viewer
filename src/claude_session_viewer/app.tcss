@@ -53,40 +53,32 @@ ListView > ListItem.--highlight {
     padding: 0 1;
 }
 
-.user-block {
-    background: $surface-lighten-1;
-    margin: 1 0 0 0;
-    padding: 1 1;
-}
-
 .user-header {
     color: $success;
     text-style: bold;
+    background: $surface-lighten-1;
+    padding: 1 1 0 1;
+    margin: 1 0 0 0;
 }
 
-.assistant-block {
-    background: $panel;
-    margin: 1 0 0 0;
-    padding: 1 1;
+.user-text {
+    background: $surface-lighten-1;
+    padding: 0 1 1 3;
 }
 
 .assistant-header {
     color: #d4a0ff;
     text-style: bold;
+    padding: 1 1 0 1;
+    margin: 1 0 0 0;
 }
 
-.tool-block {
-    background: $surface-darken-1;
-    margin: 0 0 0 2;
-    padding: 0 1;
+.assistant-text {
+    padding: 0 1 0 3;
 }
 
 .tool-header {
     color: $warning;
-}
-
-.message-text {
-    margin: 0 0 0 2;
 }
 
 .timestamp {

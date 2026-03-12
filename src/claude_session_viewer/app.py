@@ -169,32 +169,27 @@ class SessionViewerApp(App):
         conv = self.query_one("#conversation-scroll", VerticalScroll)
         conv.remove_children()
 
+        # Batch all widgets then mount at once for performance
+        widgets = []
+
         for msg in session.messages:
             if msg.tool_results and not msg.text:
-                # Pure tool result messages are shown via the tool call widget
                 continue
 
             timestamp = msg.timestamp.strftime("%H:%M")
 
             if msg.role == "user" and msg.text:
-                user_block = Vertical(classes="user-block")
-                conv.mount(user_block)
-                user_block.mount(Static(f"▶ You  {timestamp}", classes="user-header"))
-                user_block.mount(Static(msg.text, classes="message-text", markup=False))
+                widgets.append(Static(f"▶ You  {timestamp}", classes="user-header"))
+                widgets.append(Static(msg.text, classes="user-text", markup=False))
             elif msg.role == "assistant" and msg.text:
-                assistant_block = Vertical(classes="assistant-block")
-                conv.mount(assistant_block)
-                assistant_block.mount(
-                    Static(f"◆ Claude  {timestamp}", classes="assistant-header")
-                )
-                assistant_block.mount(Static(msg.text, classes="message-text", markup=False))
+                widgets.append(Static(f"◆ Claude  {timestamp}", classes="assistant-header"))
+                widgets.append(Static(msg.text, classes="assistant-text", markup=False))
 
-            if msg.tool_calls:
-                tool_block = Vertical(classes="tool-block")
-                conv.mount(tool_block)
-                for tc in msg.tool_calls:
-                    result = tool_results_map.get(tc.tool_use_id, "")
-                    tool_block.mount(ToolCallWidget(tc, tool_result=result))
+            for tc in msg.tool_calls:
+                result = tool_results_map.get(tc.tool_use_id, "")
+                widgets.append(ToolCallWidget(tc, tool_result=result))
+
+        conv.mount_all(widgets)
 
         # Update status bar
         duration = ""
