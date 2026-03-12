@@ -7,7 +7,7 @@ import subprocess
 
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.widgets import Label, ListItem, ListView, Static
+from textual.widgets import Label, ListItem, ListView, Markdown, Static
 from textual import work
 from textual.worker import get_current_worker
 
@@ -321,6 +321,8 @@ class SessionViewerApp(App):
                 widgets.append(ToolCallWidget(tc, tool_result=result))
             elif kind in ("user-header", "assistant-header"):
                 widgets.append(Static(data, classes=kind))
+            elif kind == "assistant-text":
+                widgets.append(Markdown(data, classes=kind))
             else:
                 widgets.append(Static(data, classes=kind, markup=False))
 

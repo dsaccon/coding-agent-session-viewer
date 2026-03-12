@@ -86,6 +86,17 @@ ListView > ListItem.--highlight {
     width: 1fr;
 }
 
+Markdown.assistant-text {
+    margin: 0;
+    padding: 0 0 0 3;
+}
+
+Markdown.assistant-text MarkdownFence {
+    margin: 1 0;
+    max-height: 30;
+    overflow-y: auto;
+}
+
 .tool-header {
     color: $warning;
 }
