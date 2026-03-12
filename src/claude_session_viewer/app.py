@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import platform
-import subprocess
-
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Label, ListItem, ListView, Static
@@ -378,20 +375,8 @@ class SessionViewerApp(App):
         """Copy the current session ID to clipboard."""
         if not self._current_session_id:
             return
-        try:
-            if platform.system() == "Darwin":
-                subprocess.run(
-                    ["pbcopy"], input=self._current_session_id.encode(), check=True
-                )
-            else:
-                subprocess.run(
-                    ["xclip", "-selection", "clipboard"],
-                    input=self._current_session_id.encode(),
-                    check=True,
-                )
-            self.notify(f"Copied: {self._current_session_id}", timeout=2)
-        except (FileNotFoundError, subprocess.CalledProcessError) as e:
-            self.notify(f"Copy failed: {e}", severity="error", timeout=4)
+        self.copy_to_clipboard(self._current_session_id)
+        self.notify(f"Copied: {self._current_session_id}", timeout=2)
 
     def action_go_back(self) -> None:
         """Go back: Conversation → Sessions → Projects."""
