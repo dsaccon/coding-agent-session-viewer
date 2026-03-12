@@ -107,8 +107,11 @@ class SessionViewerApp(App):
     }
 
     def on_key(self, event) -> None:
-        """Forward j/k to ListViews as up/down."""
-        if event.key in ("j", "k"):
+        """Handle keys that might be consumed by focused widgets."""
+        if event.key == "c":
+            self.action_copy_session_id()
+            event.prevent_default()
+        elif event.key in ("j", "k"):
             focused = self.focused
             if isinstance(focused, ListView):
                 if event.key == "j":
@@ -387,8 +390,8 @@ class SessionViewerApp(App):
                     check=True,
                 )
             self.notify(f"Copied: {self._current_session_id}", timeout=2)
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            self.notify("Failed to copy to clipboard", severity="error", timeout=2)
+        except (FileNotFoundError, subprocess.CalledProcessError) as e:
+            self.notify(f"Copy failed: {e}", severity="error", timeout=4)
 
     def action_go_back(self) -> None:
         """Go back: Conversation → Sessions → Projects."""
