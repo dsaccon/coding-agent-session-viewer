@@ -9,6 +9,7 @@ from textual import work
 from textual.worker import get_current_worker
 
 SCROLL_STEP = 5  # lines per arrow key press in conversation
+DEBOUNCE_SECONDS = 0.15  # delay before loading conversation on highlight
 
 
 class FastScroll(VerticalScroll):
@@ -38,6 +39,7 @@ class FastScroll(VerticalScroll):
 from claude_session_viewer.parser import (
     DEFAULT_PROJECTS_DIR,
     ProjectInfo,
+    SessionData,
     SessionSummary,
     discover_projects,
     discover_sessions,
@@ -67,6 +69,8 @@ class SessionViewerApp(App):
         self.session_summaries: list[SessionSummary] = []
         self._current_project_index: int | None = None
         self._current_session_index: int | None = None
+        self._session_cache: dict[str, tuple[list, SessionSummary]] = {}
+        self._debounce_timer = None
 
     def compose(self) -> ComposeResult:
         yield Horizontal(
@@ -140,7 +144,7 @@ class SessionViewerApp(App):
         elif event.list_view.id == "sessions-list":
             if idx != self._current_session_index:
                 self._current_session_index = idx
-                self._load_conversation(idx)
+                self._debounce_load_conversation(idx)
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle Enter key on list items."""
@@ -150,6 +154,14 @@ class SessionViewerApp(App):
         elif event.list_view.id == "sessions-list":
             # Focus conversation panel after selecting a session
             self.query_one("#conversation-scroll").focus()
+
+    def _debounce_load_conversation(self, session_index: int) -> None:
+        """Debounce conversation loading — wait before triggering parse."""
+        if self._debounce_timer is not None:
+            self._debounce_timer.stop()
+        self._debounce_timer = self.set_timer(
+            DEBOUNCE_SECONDS, lambda: self._load_conversation(session_index)
+        )
 
     def _load_sessions(self, project_index: int) -> None:
         """Load sessions for the selected project (async)."""
@@ -214,6 +226,13 @@ class SessionViewerApp(App):
             return
 
         summary = self.session_summaries[session_index]
+        cache_key = str(summary.path)
+
+        # Check cache first
+        if cache_key in self._session_cache:
+            widget_data, cached_summary = self._session_cache[cache_key]
+            self._populate_conversation(widget_data, cached_summary, session_index)
+            return
 
         conv = self.query_one("#conversation-scroll", FastScroll)
         conv.remove_children()
@@ -257,6 +276,10 @@ class SessionViewerApp(App):
 
         if worker.is_cancelled:
             return
+
+        # Cache the parsed data
+        cache_key = str(summary.path)
+        self._session_cache[cache_key] = (widget_data, summary)
 
         self.call_from_thread(
             self._populate_conversation, widget_data, summary, session_index
