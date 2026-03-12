@@ -91,7 +91,7 @@ class SessionViewerApp(App):
             ),
         )
         yield Static(
-            "q: quit  Tab: switch panel  Esc: back  ↑↓/j/k: scroll  PgUp/PgDn: page  Enter: select",
+            "q: quit  ←→/Tab: switch panel  Esc: back  ↑↓/j/k: scroll  PgUp/PgDn: page  Enter: select",
             id="status-bar",
         )
 
@@ -100,6 +100,17 @@ class SessionViewerApp(App):
         "sessions-list": "header-sessions",
         "conversation-scroll": "header-conversation",
     }
+
+    def on_key(self, event) -> None:
+        """Forward j/k to ListViews as up/down."""
+        if event.key in ("j", "k"):
+            focused = self.focused
+            if isinstance(focused, ListView):
+                if event.key == "j":
+                    focused.action_cursor_down()
+                else:
+                    focused.action_cursor_up()
+                event.prevent_default()
 
     def on_descendant_focus(self, event) -> None:
         """Update panel headers when focus changes."""
@@ -316,7 +327,7 @@ class SessionViewerApp(App):
 
         status = self.query_one("#status-bar", Static)
         status.update(
-            f"q: quit  Tab: switch panel  Esc: back  ↑↓/j/k: scroll  PgUp/PgDn: page  Enter: select  │  "
+            f"q: quit  ←→/Tab: switch panel  Esc: back  ↑↓/j/k: scroll  PgUp/PgDn: page  Enter: select  │  "
             f"Session {summary.session_id[:8]}  {duration}  "
             f"{summary.message_count} messages"
         )
