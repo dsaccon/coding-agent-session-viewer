@@ -71,17 +71,17 @@ class SessionViewerApp(App):
     def compose(self) -> ComposeResult:
         yield Horizontal(
             Vertical(
-                Static("Projects", classes="panel-header"),
+                Static("Projects", id="header-projects", classes="panel-header"),
                 ListView(id="projects-list"),
                 id="projects-panel",
             ),
             Vertical(
-                Static("Sessions", classes="panel-header"),
+                Static("Sessions", id="header-sessions", classes="panel-header"),
                 ListView(id="sessions-list"),
                 id="sessions-panel",
             ),
             Vertical(
-                Static("Conversation", classes="panel-header"),
+                Static("Conversation", id="header-conversation", classes="panel-header"),
                 FastScroll(id="conversation-scroll", can_focus_children=False),
                 id="conversation-panel",
             ),
@@ -90,6 +90,29 @@ class SessionViewerApp(App):
             "q: quit  Tab: switch panel  Esc: back  ↑↓/j/k: scroll  PgUp/PgDn: page  Enter: select",
             id="status-bar",
         )
+
+    PANEL_HEADER_MAP = {
+        "projects-list": "header-projects",
+        "sessions-list": "header-sessions",
+        "conversation-scroll": "header-conversation",
+    }
+
+    def on_descendant_focus(self, event) -> None:
+        """Update panel headers when focus changes."""
+        self._update_active_header()
+
+    def _update_active_header(self) -> None:
+        """Highlight the header of the currently focused panel."""
+        panels = ["projects-list", "sessions-list", "conversation-scroll"]
+        active_panel = self._find_current_panel(panels)
+
+        for i, panel_id in enumerate(panels):
+            header_id = self.PANEL_HEADER_MAP[panel_id]
+            header = self.query_one(f"#{header_id}", Static)
+            if i == active_panel:
+                header.add_class("active-header")
+            else:
+                header.remove_class("active-header")
 
     def on_mount(self) -> None:
         """Load projects on startup."""

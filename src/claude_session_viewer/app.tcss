@@ -28,9 +28,7 @@ Screen {
     text-align: center;
 }
 
-#projects-panel:focus-within .panel-header,
-#sessions-panel:focus-within .panel-header,
-#conversation-panel:focus-within .panel-header {
+.active-header {
     background: $primary;
     color: $text;
 }
