@@ -6,7 +6,7 @@ import os
 
 from rich.text import Text
 from textual.app import ComposeResult
-from textual.widgets import Collapsible, Static
+from textual.widgets import Static
 
 from claude_session_viewer.parser import ToolCall
 
@@ -24,16 +24,18 @@ def _short_path(file_path: str) -> str:
 
 
 class ToolCallWidget(Static):
-    """A collapsible tool call display."""
+    """Inline tool call display with diff view for edits."""
 
     DEFAULT_CSS = """
     ToolCallWidget {
         margin: 0;
+        padding: 0 0 0 3;
     }
-    ToolCallWidget Collapsible {
-        padding: 0;
+    ToolCallWidget .tool-header {
+        color: $warning;
+        text-style: bold;
     }
-    ToolCallWidget .tool-input {
+    ToolCallWidget .tool-detail {
         color: $text-muted;
         margin: 0 0 0 2;
     }
@@ -60,7 +62,7 @@ class ToolCallWidget(Static):
         new_string = tc.input.get("new_string", "")
 
         short = _short_path(file_path)
-        title = f"✎ Edit  {short}"
+        yield Static(f"✎ Edit  {short}", classes="tool-header")
 
         diff = Text()
         old_lines = old_string.splitlines() if old_string else []
@@ -80,12 +82,7 @@ class ToolCallWidget(Static):
             diff.append(f"\n... ({total} lines total, truncated)\n", style="dim")
 
         self._append_error(diff)
-
-        yield Collapsible(
-            Static(diff, classes="tool-input"),
-            title=title,
-            collapsed=True,
-        )
+        yield Static(diff, classes="tool-detail")
 
     def _compose_write(self) -> ComposeResult:
         tc = self.tool_call
@@ -93,7 +90,7 @@ class ToolCallWidget(Static):
         content = tc.input.get("content", "")
 
         short = _short_path(file_path)
-        title = f"✎ Write  {short}"
+        yield Static(f"✎ Write  {short}", classes="tool-header")
 
         diff = Text()
         lines = content.splitlines() if content else []
@@ -107,12 +104,7 @@ class ToolCallWidget(Static):
             )
 
         self._append_error(diff)
-
-        yield Collapsible(
-            Static(diff, classes="tool-input"),
-            title=title,
-            collapsed=True,
-        )
+        yield Static(diff, classes="tool-detail")
 
     def _compose_default(self) -> ComposeResult:
         tc = self.tool_call
@@ -122,29 +114,13 @@ class ToolCallWidget(Static):
             if isinstance(first_val, str):
                 input_preview = f' "{first_val[:60]}"'
 
-        title = f"▸ {tc.name}{input_preview}"
-
-        detail_lines = []
-        if tc.input:
-            for key, val in tc.input.items():
-                val_str = str(val)
-                if len(val_str) > 200:
-                    val_str = val_str[:200] + "..."
-                detail_lines.append(f"{key}: {val_str}")
+        yield Static(f"▸ {tc.name}{input_preview}", classes="tool-header")
 
         if self.tool_result:
             result_text = self.tool_result
             if len(result_text) > MAX_RESULT_CHARS:
                 result_text = result_text[:MAX_RESULT_CHARS] + "\n... (truncated)"
-            detail_lines.append(f"\nResult:\n{result_text}")
-
-        detail = "\n".join(detail_lines) if detail_lines else "(no details)"
-
-        yield Collapsible(
-            Static(detail, classes="tool-input", markup=False),
-            title=title,
-            collapsed=True,
-        )
+            yield Static(result_text, classes="tool-detail", markup=False)
 
     def _append_error(self, text: Text) -> None:
         """Append tool result if it's an error."""
