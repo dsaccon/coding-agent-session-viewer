@@ -42,12 +42,12 @@ ListView {
 
 ListView > ListItem {
     padding: 0 1;
-    border-bottom: solid $surface-lighten-1;
+    border-bottom: solid $surface-lighten-3;
 }
 
 ListView > ListItem.--highlight {
     background: $primary-darken-1;
-    border-bottom: none;
+    border-bottom: solid $primary-darken-1;
 }
 
 #conversation-scroll {
