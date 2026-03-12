@@ -41,15 +41,14 @@ ListView {
 }
 
 ListView > ListItem {
-    padding: 0 1 1 1;
-}
-
-ListView > ListItem:even {
-    background: $surface-darken-1;
+    padding: 0 1;
+    border-bottom: solid $surface-lighten-3;
 }
 
 ListView > ListItem.--highlight {
     background: $primary-darken-1;
+    padding: 0 1 1 1;
+    border-bottom: none;
 }
 
 #conversation-scroll {
