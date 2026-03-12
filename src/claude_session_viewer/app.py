@@ -174,10 +174,16 @@ class SessionViewerApp(App):
         sessions_list.clear()
 
         for summary in summaries:
-            time_str = self._format_session_time(summary)
+            start_str, end_str = self._format_session_times(summary)
             preview = (summary.first_message or "(no messages)")[:60]
-            item_text = f"{time_str}\n{preview}"
-            sessions_list.append(ListItem(Label(item_text, markup=False)))
+            time_row = Horizontal(
+                Label(start_str, classes="session-start"),
+                Label(end_str, classes="session-end"),
+                classes="session-time-row",
+            )
+            sessions_list.append(
+                ListItem(Vertical(time_row, Label(preview, markup=False)))
+            )
 
     def _load_conversation(self, session_index: int) -> None:
         """Load full conversation for the selected session (async)."""
@@ -269,22 +275,22 @@ class SessionViewerApp(App):
             f"{summary.message_count} messages"
         )
 
-    def _format_session_time(self, summary: SessionSummary) -> str:
-        """Format session start → end time."""
+    def _format_session_times(self, summary: SessionSummary) -> tuple[str, str]:
+        """Format session start and end times as separate strings."""
         if not summary.start_time:
-            return "Unknown time"
+            return ("Unknown time", "")
 
         start = summary.start_time
         start_str = start.strftime("%b %d, %H:%M")
 
         if not summary.end_time:
-            return start_str
+            return (start_str, "")
 
         end = summary.end_time
         if start.date() == end.date():
-            return f"{start_str} → {end.strftime('%H:%M')}"
+            return (start_str, f"→ {end.strftime('%H:%M')}")
         else:
-            return f"{start_str} → {end.strftime('%b %d, %H:%M')}"
+            return (start_str, f"→ {end.strftime('%b %d, %H:%M')}")
 
     def action_go_back(self) -> None:
         """Go back: Conversation → Sessions → Projects."""

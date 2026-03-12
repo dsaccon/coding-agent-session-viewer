@@ -89,14 +89,18 @@ ListView > ListItem.--highlight {
     color: $text-muted;
 }
 
-.session-time {
+.session-time-row {
+    height: 1;
+    width: 1fr;
+}
+
+.session-start {
     color: $primary-lighten-2;
+    width: 1fr;
 }
 
-.session-end-time {
+.session-end {
     color: $text-muted;
-}
-
-.session-preview {
-    color: $text;
+    text-align: right;
+    width: auto;
 }
