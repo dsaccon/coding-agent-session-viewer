@@ -315,26 +315,37 @@ class SessionViewerApp(App):
         else:
             return (start_str, f"→ {end.strftime('%b %d, %H:%M')}")
 
+    def _focus_panel(self, panel_id: str) -> None:
+        """Focus a panel and immediately update the header."""
+        self.query_one(f"#{panel_id}").focus()
+        panels = ["projects-list", "sessions-list", "conversation-scroll"]
+        idx = panels.index(panel_id)
+        for i, pid in enumerate(panels):
+            header_id = self.PANEL_HEADER_MAP[pid]
+            header = self.query_one(f"#{header_id}", Static)
+            if i == idx:
+                header.add_class("active-header")
+            else:
+                header.remove_class("active-header")
+
     def action_go_back(self) -> None:
         """Go back: Conversation → Sessions → Projects."""
         panels = ["projects-list", "sessions-list", "conversation-scroll"]
         current = self._find_current_panel(panels)
         if current > 0:
-            self.query_one(f"#{panels[current - 1]}").focus()
+            self._focus_panel(panels[current - 1])
 
     def action_focus_next_panel(self) -> None:
         """Cycle focus to the next panel."""
         panels = ["projects-list", "sessions-list", "conversation-scroll"]
         current = self._find_current_panel(panels)
-        next_id = panels[(current + 1) % len(panels)]
-        self.query_one(f"#{next_id}").focus()
+        self._focus_panel(panels[(current + 1) % len(panels)])
 
     def action_focus_previous_panel(self) -> None:
         """Cycle focus to the previous panel."""
         panels = ["projects-list", "sessions-list", "conversation-scroll"]
         current = self._find_current_panel(panels)
-        prev_id = panels[(current - 1) % len(panels)]
-        self.query_one(f"#{prev_id}").focus()
+        self._focus_panel(panels[(current - 1) % len(panels)])
 
     def _find_current_panel(self, panels: list[str]) -> int:
         """Find the index of the currently focused panel."""
