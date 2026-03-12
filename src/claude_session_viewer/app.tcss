@@ -47,6 +47,7 @@ ListView > ListItem {
 
 ListView > ListItem.--highlight {
     background: $primary-darken-1;
+    border-bottom: none;
 }
 
 #conversation-scroll {
