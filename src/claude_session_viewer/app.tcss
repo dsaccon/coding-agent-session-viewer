@@ -50,7 +50,6 @@ ListView > ListItem.--highlight {
 
 #conversation-scroll {
     background: $surface;
-    padding: 0 1;
 }
 
 .user-header {

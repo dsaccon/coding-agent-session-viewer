@@ -55,7 +55,7 @@ class SessionViewerApp(App):
             ),
             Vertical(
                 Static("Conversation", classes="panel-header"),
-                VerticalScroll(id="conversation-scroll"),
+                VerticalScroll(id="conversation-scroll", can_focus_children=False),
                 id="conversation-panel",
             ),
         )
