@@ -5,6 +5,8 @@ from __future__ import annotations
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Label, ListItem, ListView, Static
+from textual import work
+from textual.worker import get_current_worker
 
 from claude_session_viewer.parser import (
     DEFAULT_PROJECTS_DIR,
@@ -100,28 +102,55 @@ class SessionViewerApp(App):
             self.query_one("#conversation-scroll").focus()
 
     def _load_sessions(self, project_index: int) -> None:
-        """Load sessions for the selected project."""
+        """Load sessions for the selected project (async)."""
         if project_index >= len(self.projects):
             return
 
         project = self.projects[project_index]
-        session_paths = discover_sessions(project.path)
-
-        self.session_summaries = [load_session_summary(p) for p in session_paths]
         self._current_session_index = None
 
         sessions_list = self.query_one("#sessions-list", ListView)
         sessions_list.clear()
 
-        for summary in self.session_summaries:
-            time_str = self._format_session_time(summary)
-            preview = (summary.first_message or "(no messages)")[:60]
-            item_text = f"{time_str}\n{preview}"
-            sessions_list.append(ListItem(Label(item_text)))
-
         # Clear conversation when project changes
         conv = self.query_one("#conversation-scroll", VerticalScroll)
         conv.remove_children()
+
+        self._load_sessions_worker(project, project_index)
+
+    @work(thread=True, exclusive=True, group="load-sessions")
+    def _load_sessions_worker(self, project: ProjectInfo, project_index: int) -> None:
+        """Load session summaries in a background thread."""
+        worker = get_current_worker()
+        session_paths = discover_sessions(project.path)
+        summaries: list[SessionSummary] = []
+
+        for path in session_paths:
+            if worker.is_cancelled:
+                return
+            summaries.append(load_session_summary(path))
+
+        if worker.is_cancelled:
+            return
+
+        # Update UI from the main thread
+        self.call_from_thread(self._populate_sessions, summaries, project_index)
+
+    def _populate_sessions(self, summaries: list[SessionSummary], project_index: int) -> None:
+        """Populate the sessions list (called on main thread)."""
+        # Check we're still on the same project
+        if self._current_project_index != project_index:
+            return
+
+        self.session_summaries = summaries
+        sessions_list = self.query_one("#sessions-list", ListView)
+        sessions_list.clear()
+
+        for summary in summaries:
+            time_str = self._format_session_time(summary)
+            preview = (summary.first_message or "(no messages)")[:60]
+            item_text = f"{time_str}\n{preview}"
+            sessions_list.append(ListItem(Label(item_text, markup=False)))
 
     def _load_conversation(self, session_index: int) -> None:
         """Load full conversation for the selected session."""

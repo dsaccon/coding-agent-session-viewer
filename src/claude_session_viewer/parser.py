@@ -171,15 +171,25 @@ def parse_session(path: Path) -> SessionData:
 
 
 def load_session_summary(path: Path) -> SessionSummary:
-    """Load just the metadata from a session file without parsing all messages."""
+    """Load metadata from a session file quickly.
+
+    Reads only the first ~50 lines to get start time and first user message.
+    Uses file modification time as a proxy for end time to avoid reading
+    the entire file.
+    """
     session_id = path.stem
     start_time: datetime | None = None
-    end_time: datetime | None = None
     first_message = ""
     message_count = 0
 
+    # Use file mtime as end time proxy (avoids reading entire file)
+    end_time = datetime.fromtimestamp(
+        path.stat().st_mtime,
+        tz=start_time.tzinfo if start_time else None,
+    )
+
     with open(path) as f:
-        for line in f:
+        for i, line in enumerate(f):
             line = line.strip()
             if not line:
                 continue
@@ -188,12 +198,12 @@ def load_session_summary(path: Path) -> SessionSummary:
             except json.JSONDecodeError:
                 continue
 
-            if "timestamp" in raw:
-                ts = _parse_timestamp(raw["timestamp"])
-                if start_time is None or ts < start_time:
-                    start_time = ts
-                if end_time is None or ts > end_time:
-                    end_time = ts
+            if start_time is None and "timestamp" in raw:
+                start_time = _parse_timestamp(raw["timestamp"])
+                # Re-create end_time with proper timezone
+                end_time = datetime.fromtimestamp(
+                    path.stat().st_mtime, tz=start_time.tzinfo
+                )
 
             msg_type = raw.get("type")
             if msg_type in ("user", "assistant"):
@@ -208,6 +218,10 @@ def load_session_summary(path: Path) -> SessionSummary:
                             if block.get("type") == "text":
                                 first_message = block.get("text", "")
                                 break
+
+            # Stop early once we have what we need
+            if first_message and start_time:
+                break
 
     return SessionSummary(
         session_id=session_id,

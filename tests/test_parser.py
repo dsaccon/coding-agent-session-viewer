@@ -94,7 +94,8 @@ def test_load_session_summary_timestamps():
     summary = load_session_summary(FIXTURE)
     assert summary.start_time.hour == 10
     assert summary.start_time.minute == 0
-    assert summary.end_time.minute == 3
+    # end_time is file mtime, so just check it's after start
+    assert summary.end_time >= summary.start_time
 
 
 # --- decode_project_path tests ---
