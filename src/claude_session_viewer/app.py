@@ -8,6 +8,33 @@ from textual.widgets import Label, ListItem, ListView, Static
 from textual import work
 from textual.worker import get_current_worker
 
+SCROLL_STEP = 5  # lines per arrow key press in conversation
+
+
+class FastScroll(VerticalScroll):
+    """VerticalScroll that moves multiple lines per keypress."""
+
+    BINDINGS = [
+        ("up,k", "scroll_up_fast", "Scroll Up"),
+        ("down,j", "scroll_down_fast", "Scroll Down"),
+        ("pageup", "page_up", "Page Up"),
+        ("pagedown", "page_down", "Page Down"),
+        ("home", "scroll_home", "Top"),
+        ("end", "scroll_end", "Bottom"),
+    ]
+
+    def action_scroll_up_fast(self) -> None:
+        self.scroll_relative(y=-SCROLL_STEP, animate=False)
+
+    def action_scroll_down_fast(self) -> None:
+        self.scroll_relative(y=SCROLL_STEP, animate=False)
+
+    def action_page_up(self) -> None:
+        self.scroll_relative(y=-self.size.height, animate=False)
+
+    def action_page_down(self) -> None:
+        self.scroll_relative(y=self.size.height, animate=False)
+
 from claude_session_viewer.parser import (
     DEFAULT_PROJECTS_DIR,
     ProjectInfo,
@@ -55,12 +82,12 @@ class SessionViewerApp(App):
             ),
             Vertical(
                 Static("Conversation", classes="panel-header"),
-                VerticalScroll(id="conversation-scroll", can_focus_children=False),
+                FastScroll(id="conversation-scroll", can_focus_children=False),
                 id="conversation-panel",
             ),
         )
         yield Static(
-            "q: quit  Tab: switch panel  Esc: back  ↑↓: navigate  Enter: select/expand",
+            "q: quit  Tab: switch panel  Esc: back  ↑↓/j/k: scroll  PgUp/PgDn: page  Enter: select",
             id="status-bar",
         )
 
@@ -113,7 +140,7 @@ class SessionViewerApp(App):
         sessions_list.clear()
 
         # Clear conversation when project changes
-        conv = self.query_one("#conversation-scroll", VerticalScroll)
+        conv = self.query_one("#conversation-scroll", FastScroll)
         conv.remove_children()
 
         self._load_sessions_worker(project, project_index)
@@ -166,7 +193,7 @@ class SessionViewerApp(App):
             for tr in msg.tool_results:
                 tool_results_map[tr.tool_use_id] = tr.content
 
-        conv = self.query_one("#conversation-scroll", VerticalScroll)
+        conv = self.query_one("#conversation-scroll", FastScroll)
         conv.remove_children()
 
         # Batch all widgets then mount at once for performance
@@ -200,7 +227,7 @@ class SessionViewerApp(App):
 
         status = self.query_one("#status-bar", Static)
         status.update(
-            f"q: quit  Tab: switch panel  Esc: back  ↑↓: navigate  Enter: select/expand  │  "
+            f"q: quit  Tab: switch panel  Esc: back  ↑↓/j/k: scroll  PgUp/PgDn: page  Enter: select  │  "
             f"Session {summary.session_id[:8]}  {duration}  "
             f"{summary.message_count} messages"
         )
