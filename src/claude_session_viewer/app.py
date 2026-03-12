@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import platform
+import subprocess
+
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Label, ListItem, ListView, Static
@@ -375,8 +378,21 @@ class SessionViewerApp(App):
         """Copy the current session ID to clipboard."""
         if not self._current_session_id:
             return
-        self.copy_to_clipboard(self._current_session_id)
-        self.notify(f"Copied: {self._current_session_id}", timeout=2)
+        try:
+            if platform.system() == "Darwin":
+                cmd = ["pbcopy"]
+            else:
+                cmd = ["xclip", "-selection", "clipboard"]
+            subprocess.run(
+                cmd,
+                input=self._current_session_id.encode(),
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self.notify(f"Copied: {self._current_session_id}", timeout=2)
+        except Exception as e:
+            self.notify(f"Copy failed: {e}", severity="error", timeout=4)
 
     def action_go_back(self) -> None:
         """Go back: Conversation → Sessions → Projects."""
