@@ -177,17 +177,24 @@ class SessionViewerApp(App):
             timestamp = msg.timestamp.strftime("%H:%M")
 
             if msg.role == "user" and msg.text:
-                conv.mount(Static(f"▶ You  {timestamp}", classes="user-header"))
-                conv.mount(Static(msg.text, classes="message-text", markup=False))
+                user_block = Vertical(classes="user-block")
+                conv.mount(user_block)
+                user_block.mount(Static(f"▶ You  {timestamp}", classes="user-header"))
+                user_block.mount(Static(msg.text, classes="message-text", markup=False))
             elif msg.role == "assistant" and msg.text:
-                conv.mount(
+                assistant_block = Vertical(classes="assistant-block")
+                conv.mount(assistant_block)
+                assistant_block.mount(
                     Static(f"◆ Claude  {timestamp}", classes="assistant-header")
                 )
-                conv.mount(Static(msg.text, classes="message-text", markup=False))
+                assistant_block.mount(Static(msg.text, classes="message-text", markup=False))
 
-            for tc in msg.tool_calls:
-                result = tool_results_map.get(tc.tool_use_id, "")
-                conv.mount(ToolCallWidget(tc, tool_result=result))
+            if msg.tool_calls:
+                tool_block = Vertical(classes="tool-block")
+                conv.mount(tool_block)
+                for tc in msg.tool_calls:
+                    result = tool_results_map.get(tc.tool_use_id, "")
+                    tool_block.mount(ToolCallWidget(tc, tool_result=result))
 
         # Update status bar
         duration = ""

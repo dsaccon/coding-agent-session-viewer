@@ -13,7 +13,7 @@ class ToolCallWidget(Static):
 
     DEFAULT_CSS = """
     ToolCallWidget {
-        margin: 0 0 0 2;
+        margin: 0;
     }
     ToolCallWidget Collapsible {
         padding: 0;
