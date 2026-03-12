@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import platform
+import subprocess
+
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Label, ListItem, ListView, Static
@@ -60,6 +63,7 @@ class SessionViewerApp(App):
         ("tab,right", "focus_next_panel", "Next Panel"),
         ("shift+tab,left", "focus_previous_panel", "Prev Panel"),
         ("escape", "go_back", "Back"),
+        ("c", "copy_session_id", "Copy Session ID"),
     ]
 
     def __init__(self, projects_dir=None):
@@ -69,6 +73,7 @@ class SessionViewerApp(App):
         self.session_summaries: list[SessionSummary] = []
         self._current_project_index: int | None = None
         self._current_session_index: int | None = None
+        self._current_session_id: str = ""
         self._session_cache: dict[str, tuple[list, SessionSummary]] = {}
         self._debounce_timer = None
 
@@ -318,6 +323,11 @@ class SessionViewerApp(App):
 
         conv.mount_all(widgets)
 
+        # Update conversation header with session ID
+        self._current_session_id = summary.session_id
+        header = self.query_one("#header-conversation", Static)
+        header.update(f"Conversation  │  {summary.session_id}  (c: copy)")
+
         # Update status bar
         duration = ""
         if summary.start_time and summary.end_time:
@@ -328,8 +338,7 @@ class SessionViewerApp(App):
         status = self.query_one("#status-bar", Static)
         status.update(
             f"q: quit  ←→/Tab: switch panel  Esc: back  ↑↓/j/k: scroll  PgUp/PgDn: page  Enter: select  │  "
-            f"Session {summary.session_id[:8]}  {duration}  "
-            f"{summary.message_count} messages"
+            f"{duration}  {summary.message_count} messages"
         )
 
     def _format_session_times(self, summary: SessionSummary) -> tuple[str, str]:
@@ -361,6 +370,25 @@ class SessionViewerApp(App):
                 header.add_class("active-header")
             else:
                 header.remove_class("active-header")
+
+    def action_copy_session_id(self) -> None:
+        """Copy the current session ID to clipboard."""
+        if not self._current_session_id:
+            return
+        try:
+            if platform.system() == "Darwin":
+                subprocess.run(
+                    ["pbcopy"], input=self._current_session_id.encode(), check=True
+                )
+            else:
+                subprocess.run(
+                    ["xclip", "-selection", "clipboard"],
+                    input=self._current_session_id.encode(),
+                    check=True,
+                )
+            self.notify(f"Copied: {self._current_session_id}", timeout=2)
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            self.notify("Failed to copy to clipboard", severity="error", timeout=2)
 
     def action_go_back(self) -> None:
         """Go back: Conversation → Sessions → Projects."""
