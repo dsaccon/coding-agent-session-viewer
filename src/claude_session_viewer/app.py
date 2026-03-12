@@ -180,12 +180,26 @@ class SessionViewerApp(App):
             sessions_list.append(ListItem(Label(item_text, markup=False)))
 
     def _load_conversation(self, session_index: int) -> None:
-        """Load full conversation for the selected session."""
+        """Load full conversation for the selected session (async)."""
         if session_index >= len(self.session_summaries):
             return
 
         summary = self.session_summaries[session_index]
+
+        conv = self.query_one("#conversation-scroll", FastScroll)
+        conv.remove_children()
+        conv.mount(Static("Loading...", classes="assistant-text"))
+
+        self._load_conversation_worker(summary, session_index)
+
+    @work(thread=True, exclusive=True, group="load-conversation")
+    def _load_conversation_worker(self, summary: SessionSummary, session_index: int) -> None:
+        """Parse session in background thread."""
+        worker = get_current_worker()
         session = parse_session(summary.path)
+
+        if worker.is_cancelled:
+            return
 
         # Build tool_use_id -> result content mapping
         tool_results_map: dict[str, str] = {}
@@ -193,12 +207,8 @@ class SessionViewerApp(App):
             for tr in msg.tool_results:
                 tool_results_map[tr.tool_use_id] = tr.content
 
-        conv = self.query_one("#conversation-scroll", FastScroll)
-        conv.remove_children()
-
-        # Batch all widgets then mount at once for performance
-        widgets = []
-
+        # Pre-build widget data (can't create widgets off-thread)
+        widget_data = []
         for msg in session.messages:
             if msg.tool_results and not msg.text:
                 continue
@@ -206,15 +216,42 @@ class SessionViewerApp(App):
             timestamp = msg.timestamp.strftime("%H:%M")
 
             if msg.role == "user" and msg.text:
-                widgets.append(Static(f"▶ You  {timestamp}", classes="user-header"))
-                widgets.append(Static(msg.text, classes="user-text", markup=False))
+                widget_data.append(("user-header", f"▶ You  {timestamp}"))
+                widget_data.append(("user-text", msg.text))
             elif msg.role == "assistant" and msg.text:
-                widgets.append(Static(f"◆ Claude  {timestamp}", classes="assistant-header"))
-                widgets.append(Static(msg.text, classes="assistant-text", markup=False))
+                widget_data.append(("assistant-header", f"◆ Claude  {timestamp}"))
+                widget_data.append(("assistant-text", msg.text))
 
             for tc in msg.tool_calls:
                 result = tool_results_map.get(tc.tool_use_id, "")
+                widget_data.append(("tool", (tc, result)))
+
+        if worker.is_cancelled:
+            return
+
+        self.call_from_thread(
+            self._populate_conversation, widget_data, summary, session_index
+        )
+
+    def _populate_conversation(
+        self, widget_data: list, summary: SessionSummary, session_index: int
+    ) -> None:
+        """Mount conversation widgets on the main thread."""
+        if self._current_session_index != session_index:
+            return
+
+        conv = self.query_one("#conversation-scroll", FastScroll)
+        conv.remove_children()
+
+        widgets = []
+        for kind, data in widget_data:
+            if kind == "tool":
+                tc, result = data
                 widgets.append(ToolCallWidget(tc, tool_result=result))
+            elif kind in ("user-header", "assistant-header"):
+                widgets.append(Static(data, classes=kind))
+            else:
+                widgets.append(Static(data, classes=kind, markup=False))
 
         conv.mount_all(widgets)
 
