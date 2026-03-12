@@ -149,12 +149,12 @@ class SessionViewerApp(App):
 
             if msg.role == "user" and msg.text:
                 conv.mount(Static(f"▶ You  {timestamp}", classes="user-header"))
-                conv.mount(Static(msg.text, classes="message-text"))
+                conv.mount(Static(msg.text, classes="message-text", markup=False))
             elif msg.role == "assistant" and msg.text:
                 conv.mount(
                     Static(f"◆ Claude  {timestamp}", classes="assistant-header")
                 )
-                conv.mount(Static(msg.text, classes="message-text"))
+                conv.mount(Static(msg.text, classes="message-text", markup=False))
 
             for tc in msg.tool_calls:
                 result = tool_results_map.get(tc.tool_use_id, "")

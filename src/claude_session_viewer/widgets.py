@@ -56,7 +56,7 @@ class ToolCallWidget(Static):
         detail = "\n".join(detail_lines) if detail_lines else "(no details)"
 
         yield Collapsible(
-            Static(detail, classes="tool-input"),
+            Static(detail, classes="tool-input", markup=False),
             title=title,
             collapsed=True,
         )
