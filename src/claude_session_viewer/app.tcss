@@ -1,0 +1,90 @@
+Screen {
+    layout: horizontal;
+}
+
+#projects-panel {
+    width: 1fr;
+    min-width: 20;
+    border-right: solid $surface-lighten-2;
+}
+
+#sessions-panel {
+    width: 1fr;
+    min-width: 25;
+    border-right: solid $surface-lighten-2;
+}
+
+#conversation-panel {
+    width: 2fr;
+}
+
+.panel-header {
+    dock: top;
+    height: 1;
+    background: $primary-darken-2;
+    color: $text;
+    text-style: bold;
+    padding: 0 1;
+    text-align: center;
+}
+
+#status-bar {
+    dock: bottom;
+    height: 1;
+    background: $primary-darken-2;
+    color: $text-muted;
+    padding: 0 1;
+}
+
+ListView {
+    background: $surface;
+}
+
+ListView > ListItem {
+    padding: 0 1;
+}
+
+ListView > ListItem.--highlight {
+    background: $primary-darken-1;
+}
+
+#conversation-scroll {
+    background: $surface;
+    padding: 0 1;
+}
+
+.user-header {
+    color: $success;
+    text-style: bold;
+    margin: 1 0 0 0;
+}
+
+.assistant-header {
+    color: #d4a0ff;
+    text-style: bold;
+    margin: 1 0 0 0;
+}
+
+.tool-header {
+    color: $warning;
+}
+
+.message-text {
+    margin: 0 0 0 2;
+}
+
+.timestamp {
+    color: $text-muted;
+}
+
+.session-time {
+    color: $primary-lighten-2;
+}
+
+.session-end-time {
+    color: $text-muted;
+}
+
+.session-preview {
+    color: $text;
+}
