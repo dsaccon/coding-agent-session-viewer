@@ -56,24 +56,28 @@ ListView > ListItem.--highlight {
     color: $success;
     text-style: bold;
     background: $surface-lighten-1;
-    padding: 1 1 0 1;
+    padding: 1 0 0 1;
     margin: 1 0 0 0;
+    width: 1fr;
 }
 
 .user-text {
     background: $surface-lighten-1;
-    padding: 0 1 1 3;
+    padding: 0 0 1 3;
+    width: 1fr;
 }
 
 .assistant-header {
     color: #d4a0ff;
     text-style: bold;
-    padding: 1 1 0 1;
+    padding: 1 0 0 1;
     margin: 1 0 0 0;
+    width: 1fr;
 }
 
 .assistant-text {
-    padding: 0 1 0 3;
+    padding: 0 0 0 3;
+    width: 1fr;
 }
 
 .tool-header {
