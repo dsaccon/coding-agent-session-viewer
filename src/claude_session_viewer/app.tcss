@@ -42,6 +42,7 @@ ListView {
 
 ListView > ListItem {
     padding: 0 1;
+    border-bottom: solid $surface-lighten-1;
 }
 
 ListView > ListItem.--highlight {
