@@ -76,6 +76,11 @@ class SessionViewerApp(App):
         self._current_session_id: str = ""
         self._session_cache: dict[str, tuple[list, SessionSummary]] = {}
         self._debounce_timer = None
+        # Select mode state
+        self._select_mode = False
+        self._select_cursor = 0
+        self._selected_indices: set[int] = set()
+        self._selectable_items: list[tuple[str, object]] = []  # (text, widget)
 
     def compose(self) -> ComposeResult:
         yield Horizontal(
@@ -108,7 +113,48 @@ class SessionViewerApp(App):
 
     def on_key(self, event) -> None:
         """Handle keys that might be consumed by focused widgets."""
-        if event.key == "c":
+        # Select mode keys
+        if self._select_mode:
+            if event.key in ("j", "down"):
+                self._select_move(1)
+                event.prevent_default()
+                event.stop()
+                return
+            elif event.key in ("k", "up"):
+                self._select_move(-1)
+                event.prevent_default()
+                event.stop()
+                return
+            elif event.key == "space":
+                self._select_toggle()
+                event.prevent_default()
+                event.stop()
+                return
+            elif event.key in ("y", "enter"):
+                self._select_copy()
+                event.prevent_default()
+                event.stop()
+                return
+            elif event.key == "escape":
+                self._select_exit()
+                event.prevent_default()
+                event.stop()
+                return
+            elif event.key == "a":
+                self._select_all()
+                event.prevent_default()
+                event.stop()
+                return
+
+        if event.key == "s":
+            # Enter select mode if in conversation panel
+            panels = ["projects-list", "sessions-list", "conversation-scroll"]
+            if self._find_current_panel(panels) == 2 and self._selectable_items:
+                self._select_enter()
+                event.prevent_default()
+                event.stop()
+                return
+        elif event.key == "c":
             self.action_copy_session_id()
             event.prevent_default()
         elif event.key in ("j", "k"):
@@ -119,6 +165,99 @@ class SessionViewerApp(App):
                 else:
                     focused.action_cursor_up()
                 event.prevent_default()
+
+    # --- Select mode ---
+
+    def _select_enter(self) -> None:
+        """Enter select mode."""
+        self._select_mode = True
+        self._select_cursor = 0
+        self._selected_indices = set()
+        self._select_update_highlight()
+        self._select_update_status()
+
+    def _select_exit(self) -> None:
+        """Exit select mode and clear highlights."""
+        self._select_mode = False
+        self._selected_indices = set()
+        for _, widget in self._selectable_items:
+            widget.remove_class("select-cursor")
+            widget.remove_class("select-marked")
+        # Restore normal status bar
+        status = self.query_one("#status-bar", Static)
+        status.update(
+            "q: quit  ←→/Tab: switch panel  Esc: back  ↑↓/j/k: scroll  PgUp/PgDn: page  Enter: select"
+        )
+
+    def _select_move(self, direction: int) -> None:
+        """Move the select cursor."""
+        if not self._selectable_items:
+            return
+        old = self._select_cursor
+        self._select_cursor = max(
+            0, min(len(self._selectable_items) - 1, old + direction)
+        )
+        self._select_update_highlight()
+        # Scroll the cursor widget into view
+        _, widget = self._selectable_items[self._select_cursor]
+        widget.scroll_visible()
+
+    def _select_toggle(self) -> None:
+        """Toggle selection on current item."""
+        idx = self._select_cursor
+        if idx in self._selected_indices:
+            self._selected_indices.discard(idx)
+        else:
+            self._selected_indices.add(idx)
+        self._select_update_highlight()
+        self._select_update_status()
+        # Auto-advance after toggling
+        self._select_move(1)
+
+    def _select_all(self) -> None:
+        """Select or deselect all items."""
+        if len(self._selected_indices) == len(self._selectable_items):
+            self._selected_indices = set()
+        else:
+            self._selected_indices = set(range(len(self._selectable_items)))
+        self._select_update_highlight()
+        self._select_update_status()
+
+    def _select_copy(self) -> None:
+        """Copy selected items to clipboard."""
+        indices = sorted(self._selected_indices) if self._selected_indices else [self._select_cursor]
+        texts = []
+        for i in indices:
+            text, _ = self._selectable_items[i]
+            texts.append(text)
+        combined = "\n\n".join(texts)
+        self._copy_to_clipboard(combined)
+        count = len(indices)
+        self.notify(f"Copied {count} block{'s' if count != 1 else ''}", timeout=2)
+        self._select_exit()
+
+    def _select_update_highlight(self) -> None:
+        """Update visual highlights for select mode."""
+        for i, (_, widget) in enumerate(self._selectable_items):
+            if i == self._select_cursor:
+                widget.add_class("select-cursor")
+            else:
+                widget.remove_class("select-cursor")
+            if i in self._selected_indices:
+                widget.add_class("select-marked")
+            else:
+                widget.remove_class("select-marked")
+
+    def _select_update_status(self) -> None:
+        """Update status bar for select mode."""
+        count = len(self._selected_indices)
+        status = self.query_one("#status-bar", Static)
+        status.update(
+            f"SELECT MODE  │  ↑↓/j/k: move  Space: toggle  a: all  "
+            f"y/Enter: copy  Esc: cancel  │  {count} selected"
+        )
+
+    # --- End select mode ---
 
     def on_descendant_focus(self, event) -> None:
         """Update panel headers when focus changes."""
@@ -247,6 +386,10 @@ class SessionViewerApp(App):
         summary = self.session_summaries[session_index]
         cache_key = str(summary.path)
 
+        # Exit select mode when switching sessions
+        if self._select_mode:
+            self._select_exit()
+
         # Check cache first
         if cache_key in self._session_cache:
             widget_data, cached_summary = self._session_cache[cache_key]
@@ -315,16 +458,31 @@ class SessionViewerApp(App):
         conv.remove_children()
 
         widgets = []
+        self._selectable_items = []
+
         for kind, data in widget_data:
             if kind == "tool":
                 tc, result = data
-                widgets.append(ToolCallWidget(tc, tool_result=result))
+                w = ToolCallWidget(tc, tool_result=result)
+                widgets.append(w)
+                # Build text for copy: tool name + inputs
+                tool_text = f"[{tc.name}]"
+                if tc.input:
+                    for key, val in tc.input.items():
+                        tool_text += f"\n{key}: {val}"
+                if result:
+                    tool_text += f"\nResult: {result}"
+                self._selectable_items.append((tool_text, w))
             elif kind in ("user-header", "assistant-header"):
                 widgets.append(Static(data, classes=kind))
             elif kind == "assistant-text":
-                widgets.append(Markdown(data, classes=kind))
-            else:
-                widgets.append(Static(data, classes=kind, markup=False))
+                w = Markdown(data, classes=kind)
+                widgets.append(w)
+                self._selectable_items.append((data, w))
+            elif kind == "user-text":
+                w = Static(data, classes=kind, markup=False)
+                widgets.append(w)
+                self._selectable_items.append((data, w))
 
         conv.mount_all(widgets)
 
@@ -342,7 +500,7 @@ class SessionViewerApp(App):
 
         status = self.query_one("#status-bar", Static)
         status.update(
-            f"q: quit  ←→/Tab: switch panel  Esc: back  ↑↓/j/k: scroll  PgUp/PgDn: page  Enter: select  │  "
+            f"q: quit  ←→/Tab: switch panel  Esc: back  ↑↓/j/k: scroll  s: select  │  "
             f"{duration}  {summary.message_count} messages"
         )
 
@@ -376,12 +534,8 @@ class SessionViewerApp(App):
             else:
                 header.remove_class("active-header")
 
-    def action_copy_session_id(self) -> None:
-        """Copy the current session ID to clipboard."""
-        if not self._current_session_id:
-            return
-        copied = False
-        # Try native clipboard tools first (most reliable locally)
+    def _copy_to_clipboard(self, text: str) -> None:
+        """Copy text to clipboard using native tools + OSC 52 fallback."""
         try:
             if platform.system() == "Darwin":
                 cmd = ["pbcopy"]
@@ -389,20 +543,27 @@ class SessionViewerApp(App):
                 cmd = ["xclip", "-selection", "clipboard"]
             subprocess.run(
                 cmd,
-                input=self._current_session_id.encode(),
+                input=text.encode(),
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            copied = True
         except Exception:
             pass
-        # Also send OSC 52 (works over SSH if terminal supports it)
-        self.copy_to_clipboard(self._current_session_id)
+        self.copy_to_clipboard(text)
+
+    def action_copy_session_id(self) -> None:
+        """Copy the current session ID to clipboard."""
+        if not self._current_session_id:
+            return
+        self._copy_to_clipboard(self._current_session_id)
         self.notify(f"Copied: {self._current_session_id}", timeout=2)
 
     def action_go_back(self) -> None:
         """Go back: Conversation → Sessions → Projects."""
+        if self._select_mode:
+            self._select_exit()
+            return
         panels = ["projects-list", "sessions-list", "conversation-scroll"]
         current = self._find_current_panel(panels)
         if current > 0:

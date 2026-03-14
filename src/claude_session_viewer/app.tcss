@@ -129,3 +129,16 @@ Markdown.assistant-text MarkdownFence {
     text-align: right;
     width: auto;
 }
+
+.select-cursor {
+    border-left: thick $warning;
+}
+
+.select-marked {
+    background: $primary-darken-2;
+}
+
+.select-cursor.select-marked {
+    border-left: thick $warning;
+    background: $primary-darken-2;
+}
